@@ -3,13 +3,11 @@
 WebSocket connection به blockchain برای event listening
 """
 import asyncio
-import json
 from typing import Dict, Any, Optional, AsyncIterator, List, Tuple
-from decimal import Decimal
 from web3 import AsyncWeb3, Web3
 from web3.providers.persistent import WebSocketProvider
 from web3.contract import AsyncContract
-from web3.types import LogReceipt, FilterParams, BlockIdentifier
+from web3.types import LogReceipt
 from loguru import logger
 
 from ...application.interfaces import IBlockchainService
@@ -19,7 +17,6 @@ from .contract_abis import BONDING_CURVE_FACTORY_ABI, INDIVIDUAL_BONDING_CURVE_A
 
 
 class BlockchainService(IBlockchainService):
-    """Blockchain service for interacting with Ethereum/Hardhat"""
     
     def __init__(self, settings: Settings):
         self.settings = settings.blockchain
@@ -106,7 +103,6 @@ class BlockchainService(IBlockchainService):
             # Test contract call
             await self._factory_contract.functions.getAllTokens().call()
             
-            logger.info(f"🏭 Factory contract setup: {self.settings.factory_address}")
             
         except Exception as e:
             logger.error(f"Failed to setup factory contract: {e}")
@@ -118,7 +114,6 @@ class BlockchainService(IBlockchainService):
             return
         
         try:
-            logger.info("🔍 Discovering existing bonding curves...")
             
             # Get all deployed curves
             deployed_curves = await self._factory_contract.functions.getDeployedCurves().call()
@@ -134,7 +129,6 @@ class BlockchainService(IBlockchainService):
             logger.error(f"Failed to discover existing curves: {e}")
     
     async def _add_curve_contract(self, curve_address: str) -> None:
-        """اضافه کردن curve contract"""
         try:
             if not self._w3:
                 return
@@ -256,7 +250,6 @@ class BlockchainService(IBlockchainService):
             raise
     
     async def subscribe_to_events(self) -> AsyncIterator[Dict[str, Any]]:
-        """Subscribe به blockchain events"""
         if not self._is_connected or not self._w3:
             raise Exception("Not connected to blockchain")
         
@@ -378,7 +371,6 @@ class BlockchainService(IBlockchainService):
         block: Dict[str, Any], 
         tx: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """پردازش factory event"""
         try:
             # Debug log the structure
             logger.debug(f"Factory log_entry structure: {type(log_entry)}, keys: {list(log_entry.keys()) if hasattr(log_entry, 'keys') else 'no keys'}")

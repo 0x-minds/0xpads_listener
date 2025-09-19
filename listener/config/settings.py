@@ -12,9 +12,6 @@ try:
     env_path = Path(__file__).parent.parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
-        print(f"✅ Loaded environment from: {env_path}")
-    else:
-        print(f"⚠️ .env file not found at: {env_path}")
 except ImportError:
     print("⚠️ python-dotenv not installed, skipping .env file loading")
 

@@ -392,7 +392,6 @@ class BlockchainListener:
             logger.error(f"Error logging system stats: {e}")
     
     async def _wait_for_shutdown(self) -> None:
-        """⏹️ Wait for shutdown signal"""
         await self._shutdown_event.wait()
         logger.info("🛑 Shutdown signal received")
     
@@ -408,9 +407,6 @@ class BlockchainListener:
         logger.info("✅ Shutdown completed")
     
     async def _cleanup(self) -> None:
-        """🧹 Cleanup resources"""
-        logger.info("🧹 Cleaning up resources...")
-        
         try:
             # Stop services
             if self.websocket_service:
@@ -429,18 +425,12 @@ class BlockchainListener:
 
 
 async def main():
-    """🚀 Main entry point"""
-    # Setup logging
     setup_logging()
     
-    logger.info("🚀 Starting 0xPads Blockchain Listener")
-    
-    # Create listener instance
     listener = BlockchainListener()
     
     # Setup signal handlers
     def signal_handler():
-        logger.info("📡 Received shutdown signal")
         asyncio.create_task(listener.shutdown())
     
     # Register signal handlers
