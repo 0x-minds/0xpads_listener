@@ -380,10 +380,24 @@ class BlockchainService(IBlockchainService):
     ) -> Optional[Dict[str, Any]]:
         """پردازش factory event"""
         try:
-            # Decode the event
-            decoded_event = self._factory_contract.events.BondingCurveDeployed().process_log(log_entry)
+            # Debug log the structure
+            logger.debug(f"Factory log_entry structure: {type(log_entry)}, keys: {list(log_entry.keys()) if hasattr(log_entry, 'keys') else 'no keys'}")
             
-            event_args = decoded_event['args']
+            # Check if this is already a decoded event from event filter
+            if hasattr(log_entry, 'event') and log_entry.event == 'BondingCurveDeployed':
+                # Already decoded by event filter
+                event_args = log_entry['args']
+                logger.info(f"✅ Processing decoded BondingCurveDeployed event: {event_args.get('name', 'unknown')}")
+            else:
+                # Try to decode manually
+                try:
+                    decoded_event = self._factory_contract.events.BondingCurveDeployed().process_log(log_entry)
+                    event_args = decoded_event['args']
+                    logger.info(f"✅ Processing manually decoded BondingCurveDeployed event")
+                except Exception as decode_error:
+                    logger.error(f"Failed to decode factory event: {decode_error}")
+                    logger.debug(f"Log entry details: {log_entry}")
+                    return None
             
             # Add new curve contract
             await self._add_curve_contract(event_args['curveAddress'])
@@ -398,13 +412,14 @@ class BlockchainService(IBlockchainService):
                 'timestamp': event_args['timestamp'],
                 'block_number': log_entry['blockNumber'],
                 'block_timestamp': block['timestamp'],
-                'block_hash': block['hash'].hex(),
-                'tx_hash': log_entry['transactionHash'].hex(),
+                'block_hash': block['hash'].hex() if hasattr(block['hash'], 'hex') else str(block['hash']),
+                'tx_hash': log_entry['transactionHash'].hex() if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
                 'log_index': log_entry['logIndex']
             }
             
         except Exception as e:
             logger.error(f"Error processing factory event: {e}")
+            logger.debug(f"Full error details - log_entry: {log_entry}")
             return None
     
     async def _process_curve_event(
@@ -425,7 +440,7 @@ class BlockchainService(IBlockchainService):
             event_data = None
             
             # Check if it's already decoded (from event filter)
-            if log_entry.get('event') == 'Trade':
+            if hasattr(log_entry, 'event') and log_entry.event == 'Trade':
                 event_args = log_entry['args']
                 
                 event_data = {
@@ -449,7 +464,7 @@ class BlockchainService(IBlockchainService):
                 logger.info(f"🎪 Trade event processed: {event_args['user']} - {event_args['ethInOrOut']} ETH")
                 return event_data
                 
-            elif log_entry.get('event') == 'TokensPurchased':
+            elif hasattr(log_entry, 'event') and log_entry.event == 'TokensPurchased':
                 event_args = log_entry['args']
                 
                 event_data = {
@@ -471,7 +486,7 @@ class BlockchainService(IBlockchainService):
                 logger.info(f"🎪 TokensPurchased event processed: {event_args['buyer']} - {event_args['tokensReceived']} tokens")
                 return event_data
                 
-            elif log_entry.get('event') == 'TokensSold':
+            elif hasattr(log_entry, 'event') and log_entry.event == 'TokensSold':
                 event_args = log_entry['args']
                 
                 event_data = {
@@ -494,7 +509,9 @@ class BlockchainService(IBlockchainService):
                 return event_data
                 
             else:
-                logger.warning(f"🤷 Unknown curve event '{log_entry.get('event')}' from {curve_address}")
+                event_name = getattr(log_entry, 'event', 'unknown')
+                logger.warning(f"🤷 Unknown curve event '{event_name}' from {curve_address}")
+                logger.debug(f"Curve log_entry structure: {type(log_entry)}, data: {log_entry}")
                 return None
             
         except Exception as e:

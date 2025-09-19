@@ -18,7 +18,7 @@ help:
 # Install dependencies
 install:
 	@echo "📦 Installing dependencies..."
-	uv install
+	uv sync
 
 # Development mode
 dev:

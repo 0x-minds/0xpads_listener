@@ -4,6 +4,7 @@ Cache service با Redis
 """
 import json
 import asyncio
+from datetime import datetime, timezone
 from typing import Any, Optional, Dict, List, AsyncIterator
 import redis.asyncio as redis
 from redis.asyncio import Redis
@@ -466,3 +467,55 @@ class RedisService(ICacheService):
                 'connected': False,
                 'error': str(e)
             }
+
+    # Stream operations for real-time event processing
+    async def xadd(self, stream: str, fields: Dict[str, Any], message_id: str = "*", max_len: Optional[int] = None) -> str:
+        """Add message to Redis Stream"""
+        await self._ensure_connection()
+        
+        try:
+            # Convert all values to strings for Redis
+            string_fields = {k: json.dumps(v) if isinstance(v, (dict, list)) else str(v) for k, v in fields.items()}
+            
+            result = await self._pool.xadd(
+                stream, 
+                string_fields, 
+                id=message_id,
+                maxlen=max_len,
+                approximate=max_len is not None
+            )
+            
+            logger.debug(f"Added message to stream {stream}: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error adding to stream {stream}: {e}")
+            raise
+
+    async def send_event_to_stream(self, event_type: str, event_data: Dict[str, Any]) -> str:
+        """Send blockchain event to Redis Stream for real-time processing"""
+        stream_name = "blockchain:events"
+        
+        message_fields = {
+            'event_type': event_type,
+            'data': event_data,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'source': 'blockchain_listener'
+        }
+        
+        try:
+            message_id = await self.xadd(
+                stream_name, 
+                message_fields,
+                max_len=10000  # Keep last 10k events
+            )
+            
+            logger.info(
+                f"📡 Event sent to stream: {stream_name} | {event_type} | {message_id} | token: {event_data.get('token_address', 'unknown')}"
+            )
+            
+            return message_id
+            
+        except Exception as e:
+            logger.error(f"Failed to send event to stream: {e}")
+            raise
