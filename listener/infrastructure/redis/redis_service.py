@@ -5,8 +5,8 @@ Cache service با Redis
 import json
 import asyncio
 from typing import Any, Optional, Dict, List, AsyncIterator
-import aioredis
-from aioredis import Redis
+import redis.asyncio as redis
+from redis.asyncio import Redis
 from loguru import logger
 
 from ...application.interfaces import ICacheService
@@ -23,13 +23,18 @@ class RedisService(ICacheService):
         self._is_connected = False
     
     async def connect(self) -> None:
-        """اتصال به Redis"""
+        """Connect to Redis"""
         try:
-            logger.info(f"🔗 Connecting to Redis: {self.settings.url}")
+            # Build Redis URL from settings or use provided URL
+            if hasattr(self.settings, 'password') and self.settings.password:
+                redis_url = f"redis://:{self.settings.password}@{self.settings.host}:{self.settings.port}/{self.settings.db}"
+            else:
+                redis_url = self.settings.url
+                
+            logger.info(f"🔗 Connecting to Redis: redis://{self.settings.host}:{self.settings.port}/{self.settings.db}")
             
-            self._pool = aioredis.from_url(
-                self.settings.url,
-                db=self.settings.db,
+            self._pool = redis.from_url(
+                redis_url,
                 max_connections=self.settings.max_connections,
                 socket_timeout=self.settings.socket_timeout,
                 socket_connect_timeout=self.settings.socket_connect_timeout,
@@ -41,9 +46,8 @@ class RedisService(ICacheService):
             await self._pool.ping()
             
             # Separate connection for pub/sub
-            self._pubsub_connection = aioredis.from_url(
-                self.settings.url,
-                db=self.settings.db,
+            self._pubsub_connection = redis.from_url(
+                redis_url,
                 decode_responses=True
             )
             
@@ -56,12 +60,12 @@ class RedisService(ICacheService):
             raise
     
     async def disconnect(self) -> None:
-        """قطع اتصال"""
+        """Disconnect from Redis"""
         try:
             if self._pool:
-                await self._pool.aclose()
+                await self._pool.close()
             if self._pubsub_connection:
-                await self._pubsub_connection.aclose()
+                await self._pubsub_connection.close()
             self._is_connected = False
             logger.info("🔌 Redis disconnected")
         except Exception as e:

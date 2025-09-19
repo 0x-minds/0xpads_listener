@@ -6,9 +6,9 @@ import asyncio
 import json
 from typing import Dict, Any, Optional, AsyncIterator, List, Tuple
 from decimal import Decimal
-from web3 import Web3
-from web3.providers.websocket import WebsocketProviderV2
-from web3.contract import Contract
+from web3 import AsyncWeb3
+from web3.providers.persistent import WebSocketProvider
+from web3.contract import AsyncContract
 from web3.types import LogReceipt, FilterParams, BlockIdentifier
 from loguru import logger
 
@@ -19,19 +19,19 @@ from .contract_abis import BONDING_CURVE_FACTORY_ABI, INDIVIDUAL_BONDING_CURVE_A
 
 
 class BlockchainService(IBlockchainService):
-    """Blockchain service برای ارتباط با Ethereum/Hardhat"""
+    """Blockchain service for interacting with Ethereum/Hardhat"""
     
     def __init__(self, settings: Settings):
         self.settings = settings.blockchain
-        self._w3: Optional[Web3] = None
-        self._ws_provider: Optional[WebsocketProviderV2] = None
+        self._w3: Optional[AsyncWeb3] = None
+        self._ws_provider: Optional[WebSocketProvider] = None
         self._is_connected = False
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = self.settings.max_reconnection_attempts
         
         # Contract instances
-        self._factory_contract: Optional[Contract] = None
-        self._curve_contracts: Dict[str, Contract] = {}
+        self._factory_contract: Optional[AsyncContract] = None
+        self._curve_contracts: Dict[str, AsyncContract] = {}
         
         # Event filters
         self._event_filters: List[Any] = []
@@ -41,22 +41,30 @@ class BlockchainService(IBlockchainService):
         self._last_block_number = 0
     
     async def connect(self) -> None:
-        """اتصال به blockchain"""
+        """Connect to blockchain"""
         try:
             logger.info(f"🔗 Connecting to blockchain: {self.settings.ws_url}")
             
             # Create WebSocket provider
-            self._ws_provider = WebsocketProviderV2(self.settings.ws_url)
-            self._w3 = Web3(self._ws_provider)
+            self._ws_provider = WebSocketProvider(self.settings.ws_url)
+            self._w3 = AsyncWeb3(self._ws_provider)
+            
+            # Initialize connection
+            await self._w3.provider.connect()
             
             # Test connection
             await self._test_connection()
             
-            # Setup factory contract
-            await self._setup_factory_contract()
-            
-            # Discover existing bonding curves
-            await self._discover_existing_curves()
+            # Setup factory contract (only if address is configured)
+            if self.settings.factory_address:
+                try:
+                    await self._setup_factory_contract()
+                    # Discover existing bonding curves
+                    await self._discover_existing_curves()
+                except Exception as e:
+                    logger.warning(f"⚠️ Factory contract setup failed: {e}")
+            else:
+                logger.info("ℹ️ Factory address not configured, skipping contract setup")
             
             self._is_connected = True
             self._reconnect_attempts = 0
@@ -69,16 +77,16 @@ class BlockchainService(IBlockchainService):
             raise
     
     async def _test_connection(self) -> None:
-        """تست اتصال"""
+        """Test connection"""
         if not self._w3:
             raise Exception("Web3 instance not initialized")
         
         # Get latest block
-        latest_block = await asyncio.to_thread(self._w3.eth.get_block, 'latest')
+        latest_block = await self._w3.eth.get_block('latest')
         self._last_block_number = latest_block['number']
         
         # Verify chain ID
-        chain_id = await asyncio.to_thread(self._w3.eth.chain_id)
+        chain_id = await self._w3.eth.chain_id
         if chain_id != self.settings.chain_id:
             logger.warning(f"⚠️ Chain ID mismatch: expected {self.settings.chain_id}, got {chain_id}")
         
@@ -151,16 +159,20 @@ class BlockchainService(IBlockchainService):
             logger.error(f"Failed to add curve contract {curve_address}: {e}")
     
     async def disconnect(self) -> None:
-        """قطع اتصال"""
+        """Disconnect from blockchain"""
         try:
             # Remove event filters
             for event_filter in self._event_filters:
                 try:
-                    self._w3.eth.uninstall_filter(event_filter.filter_id)
+                    await self._w3.eth.uninstall_filter(event_filter.filter_id)
                 except:
                     pass
             
             self._event_filters.clear()
+            
+            # Close WebSocket connection
+            if self._w3 and self._w3.provider:
+                await self._w3.provider.disconnect()
             
             # Close WebSocket connection
             if self._ws_provider:
@@ -182,19 +194,19 @@ class BlockchainService(IBlockchainService):
         
         try:
             # Test with a simple call
-            await asyncio.to_thread(self._w3.eth.get_block, 'latest')
+            await self._w3.eth.get_block('latest')
             return True
         except:
             self._is_connected = False
             return False
     
     async def get_latest_block(self) -> int:
-        """دریافت آخرین block"""
+        """Get latest block number"""
         if not self._w3:
             raise Exception("Not connected to blockchain")
         
         try:
-            block = await asyncio.to_thread(self._w3.eth.get_block, 'latest')
+            block = await self._w3.eth.get_block('latest')
             self._last_block_number = block['number']
             return block['number']
         except Exception as e:

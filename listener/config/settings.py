@@ -1,15 +1,28 @@
-"""
-⚙️ Configuration Settings
-Pydantic settings برای clean config management
-"""
+
+import os
+from pathlib import Path
 from typing import List, Optional
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from decimal import Decimal
 
+# Load .env file at module level
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✅ Loaded environment from: {env_path}")
+    else:
+        print(f"⚠️ .env file not found at: {env_path}")
+except ImportError:
+    print("⚠️ python-dotenv not installed, skipping .env file loading")
+
 
 class BlockchainSettings(BaseSettings):
-    """تنظیمات blockchain"""
+    """Blockchain settings"""
+    model_config = SettingsConfigDict(env_prefix='BLOCKCHAIN_')
+    
     ws_url: str = Field(default="ws://127.0.0.1:8545", description="Blockchain WebSocket URL")
     http_url: str = Field(default="http://127.0.0.1:8545", description="Blockchain HTTP URL")
     chain_id: int = Field(default=31337, description="Chain ID")
@@ -25,9 +38,14 @@ class BlockchainSettings(BaseSettings):
 
 
 class RedisSettings(BaseSettings):
-    """تنظیمات Redis"""
+    """Redis settings"""
+    model_config = SettingsConfigDict(env_prefix='REDIS_')
+    
     url: str = Field(default="redis://localhost:6379", description="Redis URL")
+    host: str = Field(default="localhost", description="Redis host")
+    port: int = Field(default=6379, description="Redis port")
     db: int = Field(default=0, description="Redis database number")
+    password: Optional[str] = Field(default=None, description="Redis password")
     max_connections: int = Field(default=20, description="Max connection pool size")
     socket_timeout: float = Field(default=5.0, description="Socket timeout in seconds")
     socket_connect_timeout: float = Field(default=5.0, description="Connection timeout")

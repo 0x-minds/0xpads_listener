@@ -4,7 +4,7 @@ Loguru configuration
 """
 import sys
 from loguru import logger
-from ..config.settings import get_settings
+from ...config.settings import get_settings
 
 def setup_logging():
     """Setup loguru logging"""

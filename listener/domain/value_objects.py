@@ -1,6 +1,6 @@
 """
 🏛️ Domain Value Objects
-Value objects برای domain entities
+Core value objects for domain entities
 """
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, validator
 
 @dataclass(frozen=True)
 class TokenAddress:
-    """آدرس توکن با validation"""
+    """Token address with validation"""
     value: str
     
     def __post_init__(self):
@@ -21,7 +21,7 @@ class TokenAddress:
         object.__setattr__(self, 'value', Web3.to_checksum_address(self.value))
     
     def short_address(self) -> str:
-        """نمایش کوتاه آدرس"""
+        """Short display of address"""
         return f"{self.value[:6]}...{self.value[-4:]}"
     
     def __str__(self) -> str:
@@ -30,7 +30,7 @@ class TokenAddress:
 
 @dataclass(frozen=True)
 class Price:
-    """قیمت با precision مناسب"""
+    """Price with appropriate precision"""
     value: Decimal
     
     def __post_init__(self):
@@ -45,21 +45,21 @@ class Price:
     
     @classmethod
     def from_wei(cls, wei_value: Union[int, str]) -> 'Price':
-        """تبدیل از Wei به ETH"""
+        """Convert from Wei to ETH"""
         eth_value = Decimal(str(wei_value)) / Decimal('1000000000000000000')
         return cls(eth_value)
     
     @classmethod
     def from_string(cls, price_str: str) -> 'Price':
-        """تبدیل از string"""
+        """Convert from string"""
         return cls(Decimal(price_str))
     
     def to_wei(self) -> int:
-        """تبدیل به Wei"""
+        """Convert to Wei"""
         return int(self.value * Decimal('1000000000000000000'))
     
     def percentage_change(self, other: 'Price') -> Decimal:
-        """محاسبه درصد تغییر"""
+        """Calculate percentage change"""
         if other.value == 0:
             return Decimal('0')
         return ((self.value - other.value) / other.value) * Decimal('100')
@@ -79,7 +79,7 @@ class Price:
 
 @dataclass(frozen=True)
 class Volume:
-    """حجم معاملات"""
+    """Trading volume"""
     value: Decimal
     
     def __post_init__(self):
@@ -88,7 +88,7 @@ class Volume:
     
     @classmethod
     def from_wei(cls, wei_value: Union[int, str]) -> 'Volume':
-        """تبدیل از Wei"""
+        """Convert from Wei"""
         token_value = Decimal(str(wei_value)) / Decimal('1000000000000000000')
         return cls(token_value)
     
@@ -100,12 +100,12 @@ class Volume:
 
 
 class TimeInterval(BaseModel):
-    """بازه زمانی برای candlestick"""
-    interval: str = Field(..., regex=r'^(1m|5m|15m|1h|4h|1d)$')
+    """Time interval for candlestick"""
+    interval: str = Field(..., pattern=r'^(1m|5m|15m|1h|4h|1d)$')
     
     @property
     def seconds(self) -> int:
-        """تبدیل به ثانیه"""
+        """Convert to seconds"""
         mapping = {
             '1m': 60,
             '5m': 300,
@@ -117,13 +117,13 @@ class TimeInterval(BaseModel):
         return mapping[self.interval]
     
     def floor_timestamp(self, timestamp: int) -> int:
-        """گرد کردن timestamp به شروع interval"""
+        """Round timestamp to interval start"""
         return (timestamp // self.seconds) * self.seconds
 
 
 @dataclass(frozen=True)
 class BlockInfo:
-    """اطلاعات بلاک"""
+    """Block information"""
     number: int
     timestamp: int
     hash: str
@@ -137,7 +137,7 @@ class BlockInfo:
 
 @dataclass(frozen=True)
 class TransactionHash:
-    """هش تراکنش"""
+    """Transaction hash"""
     value: str
     
     def __post_init__(self):
@@ -145,7 +145,7 @@ class TransactionHash:
             raise ValueError(f"Invalid transaction hash: {self.value}")
     
     def short_hash(self) -> str:
-        """نمایش کوتاه hash"""
+        """Short display of hash"""
         return f"{self.value[:10]}...{self.value[-8:]}"
     
     def __str__(self) -> str:

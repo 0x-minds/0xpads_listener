@@ -9,7 +9,6 @@ dependencies = [
     "pydantic-settings>=2.10.1",
     "redis>=6.4.0",
     "web3>=7.13.0",
-    "aioredis>=2.0.1",
     "loguru>=0.7.3",
     "fastapi>=0.116.2",
     "uvicorn>=0.35.0",
@@ -17,4 +16,6 @@ dependencies = [
     "socketio-client>=0.7.2",
     "asyncio-mqtt>=0.16.2",
     "python-socketio>=5.13.0",
+    "hiredis>=3.2.1",
+    "python-dotenv>=1.1.1",
 ]
