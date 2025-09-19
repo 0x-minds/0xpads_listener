@@ -245,7 +245,7 @@ class MilestoneReached(DomainEvent):
             'data': {
                 'token_address': str(self.curve.token_address),
                 'curve_address': str(self.curve.curve_address),
-                'milestone_level': milestone_level,
+                'milestone_level': self.milestone_level,
                 'reserve_eth': str(self.reserve_eth.value),
                 'current_price': str(self.curve.current_price.value),
                 'market_cap': str(self.curve.market_cap.value)
@@ -255,7 +255,7 @@ class MilestoneReached(DomainEvent):
 
 @dataclass
 class VolumeSpike(DomainEvent):
-    """رویداد افزایش ناگهانی حجم"""
+    """Volume spike event"""
     token_address: TokenAddress
     current_volume: Volume
     average_volume: Volume
@@ -275,8 +275,52 @@ class VolumeSpike(DomainEvent):
                 'token_address': str(self.token_address),
                 'current_volume': str(self.current_volume.value),
                 'average_volume': str(self.average_volume.value),
-                'spike_multiplier': spike_multiplier,
-                'time_window_minutes': time_window_minutes
+                'spike_multiplier': self.spike_multiplier,
+                'time_window_minutes': self.time_window_minutes
+            }
+        }
+
+
+@dataclass
+class RegularCreatorApproved(DomainEvent):
+    """Regular token creator approved event"""
+    creator_address: TokenAddress
+    timestamp: int
+    
+    def __post_init__(self):
+        super().__init__()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'event_id': self.event_id,
+            'event_type': 'RegularCreatorApproved',
+            'occurred_at': self.occurred_at.isoformat(),
+            'version': self.version,
+            'data': {
+                'creator_address': str(self.creator_address),
+                'timestamp': self.timestamp
+            }
+        }
+
+
+@dataclass
+class RegularCreatorRevoked(DomainEvent):
+    """Regular token creator revoked event"""
+    creator_address: TokenAddress
+    timestamp: int
+    
+    def __post_init__(self):
+        super().__init__()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'event_id': self.event_id,
+            'event_type': 'RegularCreatorRevoked',
+            'occurred_at': self.occurred_at.isoformat(),
+            'version': self.version,
+            'data': {
+                'creator_address': str(self.creator_address),
+                'timestamp': self.timestamp
             }
         }
 

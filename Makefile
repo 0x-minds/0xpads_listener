@@ -8,12 +8,12 @@ help:
 	@echo ""
 	@echo "Available commands:"
 	@echo "  install    - Install dependencies"
+	@echo "  run        - 🎧 Run the blockchain listener (main command)"
 	@echo "  dev        - Run in development mode" 
 	@echo "  test       - Run tests"
 	@echo "  lint       - Check code quality"
 	@echo "  format     - Format code"
 	@echo "  clean      - Clean cache and temp files"
-	@echo "  run        - Run the application"
 
 # Install dependencies
 install:
@@ -27,8 +27,8 @@ dev:
 
 # Run application
 run:
-	@echo "🚀 Starting application..."
-	uv run python -m listener.main
+	@echo "🚀 Starting blockchain listener..."
+	uv run python start_listener.py
 
 # Run tests
 test:

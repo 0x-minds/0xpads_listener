@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Dict, Any, Optional, AsyncIterator, List, Tuple
 from decimal import Decimal
-from web3 import AsyncWeb3
+from web3 import AsyncWeb3, Web3
 from web3.providers.persistent import WebSocketProvider
 from web3.contract import AsyncContract
 from web3.types import LogReceipt, FilterParams, BlockIdentifier
@@ -104,7 +104,7 @@ class BlockchainService(IBlockchainService):
             )
             
             # Test contract call
-            await asyncio.to_thread(self._factory_contract.functions.getAllTokens().call)
+            await self._factory_contract.functions.getAllTokens().call()
             
             logger.info(f"🏭 Factory contract setup: {self.settings.factory_address}")
             
@@ -121,9 +121,7 @@ class BlockchainService(IBlockchainService):
             logger.info("🔍 Discovering existing bonding curves...")
             
             # Get all deployed curves
-            deployed_curves = await asyncio.to_thread(
-                self._factory_contract.functions.getDeployedCurves().call
-            )
+            deployed_curves = await self._factory_contract.functions.getDeployedCurves().call()
             
             logger.info(f"📊 Found {len(deployed_curves)} existing bonding curves")
             
@@ -276,7 +274,7 @@ class BlockchainService(IBlockchainService):
                     # Check all filters for new events
                     for event_filter in self._event_filters:
                         try:
-                            new_entries = await asyncio.to_thread(event_filter.get_new_entries)
+                            new_entries = await event_filter.get_new_entries()
                             for entry in new_entries:
                                 event_data = await self._process_log_entry(entry)
                                 if event_data:
@@ -310,9 +308,8 @@ class BlockchainService(IBlockchainService):
         try:
             # Factory events filter
             if self._factory_contract:
-                factory_filter = await asyncio.to_thread(
-                    self._factory_contract.events.BondingCurveDeployed.create_filter,
-                    fromBlock='latest'
+                factory_filter = await self._factory_contract.events.BondingCurveDeployed.create_filter(
+                    from_block='latest'
                 )
                 self._event_filters.append(factory_filter)
                 logger.info("📡 Factory event filter setup")
@@ -321,23 +318,20 @@ class BlockchainService(IBlockchainService):
             for curve_address, curve_contract in self._curve_contracts.items():
                 try:
                     # Trade events
-                    trade_filter = await asyncio.to_thread(
-                        curve_contract.events.Trade.create_filter,
-                        fromBlock='latest'
+                    trade_filter = await curve_contract.events.Trade.create_filter(
+                        from_block='latest'
                     )
                     self._event_filters.append(trade_filter)
                     
                     # TokensPurchased events
-                    purchase_filter = await asyncio.to_thread(
-                        curve_contract.events.TokensPurchased.create_filter,
-                        fromBlock='latest'
+                    purchase_filter = await curve_contract.events.TokensPurchased.create_filter(
+                        from_block='latest'
                     )
                     self._event_filters.append(purchase_filter)
                     
                     # TokensSold events
-                    sale_filter = await asyncio.to_thread(
-                        curve_contract.events.TokensSold.create_filter,
-                        fromBlock='latest'
+                    sale_filter = await curve_contract.events.TokensSold.create_filter(
+                        from_block='latest'
                     )
                     self._event_filters.append(sale_filter)
                     
@@ -355,16 +349,10 @@ class BlockchainService(IBlockchainService):
         """پردازش log entry"""
         try:
             # Get block info
-            block = await asyncio.to_thread(
-                self._w3.eth.get_block, 
-                log_entry['blockNumber']
-            )
+            block = await self._w3.eth.get_block(log_entry['blockNumber'])
             
             # Get transaction
-            tx = await asyncio.to_thread(
-                self._w3.eth.get_transaction,
-                log_entry['transactionHash']
-            )
+            tx = await self._w3.eth.get_transaction(log_entry['transactionHash'])
             
             # Determine event type and process
             event_data = None
@@ -431,15 +419,14 @@ class BlockchainService(IBlockchainService):
             curve_contract = self._curve_contracts[curve_address]
             
             # Get token address
-            token_address = await asyncio.to_thread(curve_contract.functions.token().call)
+            token_address = await curve_contract.functions.token().call()
             
             # Try to decode different event types
             event_data = None
             
-            # Try Trade event
-            try:
-                decoded_event = curve_contract.events.Trade().process_log(log_entry)
-                event_args = decoded_event['args']
+            # Check if it's already decoded (from event filter)
+            if log_entry.get('event') == 'Trade':
+                event_args = log_entry['args']
                 
                 event_data = {
                     'event_type': 'Trade',
@@ -455,62 +442,60 @@ class BlockchainService(IBlockchainService):
                     'timestamp': int(event_args['timestamp']),
                     'block_number': log_entry['blockNumber'],
                     'block_timestamp': block['timestamp'],
-                    'block_hash': block['hash'].hex(),
-                    'tx_hash': log_entry['transactionHash'].hex(),
+                    'block_hash': f"0x{log_entry['blockHash'].hex()}" if hasattr(log_entry['blockHash'], 'hex') else str(log_entry['blockHash']),
+                    'tx_hash': f"0x{log_entry['transactionHash'].hex()}" if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
                     'log_index': log_entry['logIndex']
                 }
+                logger.info(f"🎪 Trade event processed: {event_args['user']} - {event_args['ethInOrOut']} ETH")
+                return event_data
                 
-            except:
-                # Try TokensPurchased event
-                try:
-                    decoded_event = curve_contract.events.TokensPurchased().process_log(log_entry)
-                    event_args = decoded_event['args']
-                    
-                    event_data = {
-                        'event_type': 'TokensPurchased',
-                        'token_address': token_address,
-                        'curve_address': curve_address,
-                        'buyer': event_args['buyer'],
-                        'tokens_received': str(event_args['tokensReceived']),
-                        'eth_spent': str(event_args['ethSpent']),
-                        'platform_fee': str(event_args['platformFee']),
-                        'creator_fee': str(event_args['creatorFee']),
-                        'new_price': str(event_args['newPrice']),
-                        'block_number': log_entry['blockNumber'],
-                        'block_timestamp': block['timestamp'],
-                        'block_hash': block['hash'].hex(),
-                        'tx_hash': log_entry['transactionHash'].hex(),
-                        'log_index': log_entry['logIndex']
-                    }
-                    
-                except:
-                    # Try TokensSold event
-                    try:
-                        decoded_event = curve_contract.events.TokensSold().process_log(log_entry)
-                        event_args = decoded_event['args']
-                        
-                        event_data = {
-                            'event_type': 'TokensSold',
-                            'token_address': token_address,
-                            'curve_address': curve_address,
-                            'seller': event_args['seller'],
-                            'token_amount': str(event_args['tokenAmount']),
-                            'eth_received': str(event_args['ethReceived']),
-                            'platform_fee': str(event_args['platformFee']),
-                            'creator_fee': str(event_args['creatorFee']),
-                            'new_price': str(event_args['newPrice']),
-                            'block_number': log_entry['blockNumber'],
-                            'block_timestamp': block['timestamp'],
-                            'block_hash': block['hash'].hex(),
-                            'tx_hash': log_entry['transactionHash'].hex(),
-                            'log_index': log_entry['logIndex']
-                        }
-                        
-                    except:
-                        logger.debug(f"Unknown curve event from {curve_address}")
-                        return None
-            
-            return event_data
+            elif log_entry.get('event') == 'TokensPurchased':
+                event_args = log_entry['args']
+                
+                event_data = {
+                    'event_type': 'TokensPurchased',
+                    'token_address': token_address,
+                    'curve_address': curve_address,
+                    'buyer': event_args['buyer'],
+                    'tokens_received': str(event_args['tokensReceived']),
+                    'eth_spent': str(event_args['ethSpent']),
+                    'platform_fee': str(event_args['platformFee']),
+                    'creator_fee': str(event_args['creatorFee']),
+                    'new_price': str(event_args['newPrice']),
+                    'block_number': log_entry['blockNumber'],
+                    'block_timestamp': block['timestamp'],
+                    'block_hash': f"0x{log_entry['blockHash'].hex()}" if hasattr(log_entry['blockHash'], 'hex') else str(log_entry['blockHash']),
+                    'tx_hash': f"0x{log_entry['transactionHash'].hex()}" if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
+                    'log_index': log_entry['logIndex']
+                }
+                logger.info(f"🎪 TokensPurchased event processed: {event_args['buyer']} - {event_args['tokensReceived']} tokens")
+                return event_data
+                
+            elif log_entry.get('event') == 'TokensSold':
+                event_args = log_entry['args']
+                
+                event_data = {
+                    'event_type': 'TokensSold',
+                    'token_address': token_address,
+                    'curve_address': curve_address,
+                    'seller': event_args['seller'],
+                    'token_amount': str(event_args['tokenAmount']),
+                    'eth_received': str(event_args['ethReceived']),
+                    'platform_fee': str(event_args['platformFee']),
+                    'creator_fee': str(event_args['creatorFee']),
+                    'new_price': str(event_args['newPrice']),
+                    'block_number': log_entry['blockNumber'],
+                    'block_timestamp': block['timestamp'],
+                    'block_hash': f"0x{log_entry['blockHash'].hex()}" if hasattr(log_entry['blockHash'], 'hex') else str(log_entry['blockHash']),
+                    'tx_hash': f"0x{log_entry['transactionHash'].hex()}" if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
+                    'log_index': log_entry['logIndex']
+                }
+                logger.info(f"🎪 TokensSold event processed: {event_args['seller']} - {event_args['tokenAmount']} tokens")
+                return event_data
+                
+            else:
+                logger.warning(f"🤷 Unknown curve event '{log_entry.get('event')}' from {curve_address}")
+                return None
             
         except Exception as e:
             logger.error(f"Error processing curve event: {e}")

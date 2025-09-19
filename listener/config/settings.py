@@ -26,7 +26,7 @@ class BlockchainSettings(BaseSettings):
     ws_url: str = Field(default="ws://127.0.0.1:8545", description="Blockchain WebSocket URL")
     http_url: str = Field(default="http://127.0.0.1:8545", description="Blockchain HTTP URL")
     chain_id: int = Field(default=31337, description="Chain ID")
-    factory_address: Optional[str] = Field(default=None, description="Factory contract address")
+    factory_address: Optional[str] = Field(default=None, description="Factory contract address", alias="BONDING_CURVE_FACTORY_ADDRESS")
     max_reconnection_attempts: int = Field(default=10, description="Max reconnection attempts")
     heartbeat_interval: int = Field(default=30, description="Heartbeat interval in seconds")
     

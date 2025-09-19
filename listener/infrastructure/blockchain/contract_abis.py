@@ -40,6 +40,24 @@ BONDING_CURVE_FACTORY_ABI = [
         "name": "CurveStatusChanged",
         "type": "event"
     },
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "name": "creator", "type": "address"},
+            {"indexed": False, "name": "timestamp", "type": "uint256"}
+        ],
+        "name": "RegularTokenCreatorApproved",
+        "type": "event"
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "name": "creator", "type": "address"},
+            {"indexed": False, "name": "timestamp", "type": "uint256"}
+        ],
+        "name": "RegularTokenCreatorRevoked",
+        "type": "event"
+    },
     
     # View Functions
     {

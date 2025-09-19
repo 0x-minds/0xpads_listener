@@ -357,6 +357,23 @@ class MockWebSocketService(IWebSocketService):
         self._messages.append({'type': 'room', 'room': room, 'message': message})
         logger.info(f"🔧 Mock send to room {room}: {message.get('type', 'unknown')}")
     
+    async def health_check(self) -> Dict[str, Any]:
+        """Mock health check"""
+        return {
+            'status': 'healthy',
+            'connected': self._is_connected,
+            'mock': True
+        }
+    
+    async def get_connection_stats(self) -> Dict[str, Any]:
+        """Mock connection stats"""
+        return {
+            'total_connections': 0,
+            'active_rooms': len(self._rooms),
+            'messages_sent': len(self._messages),
+            'mock': True
+        }
+    
     async def connect_to_backend(self) -> None:
         logger.info("🔧 Mock backend connection")
     
