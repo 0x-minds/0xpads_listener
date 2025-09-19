@@ -1,0 +1,20 @@
+[project]
+name = "0xpads-listener"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.11.9",
+    "pydantic-settings>=2.10.1",
+    "redis>=6.4.0",
+    "web3>=7.13.0",
+    "aioredis>=2.0.1",
+    "loguru>=0.7.3",
+    "fastapi>=0.116.2",
+    "uvicorn>=0.35.0",
+    "websockets>=15.0.1",
+    "socketio-client>=0.7.2",
+    "asyncio-mqtt>=0.16.2",
+    "python-socketio>=5.13.0",
+]
