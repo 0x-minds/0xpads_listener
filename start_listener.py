@@ -1,11 +1,5 @@
-#!/usr/bin/env python3
-"""
-🎧 0xPads Blockchain Listener Runner
-راه‌انداز ساده برای listener
-"""
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add the project root to Python path
@@ -14,7 +8,6 @@ sys.path.insert(0, str(project_root))
 
 from listener.main import BlockchainListener
 from listener.config.settings import get_settings
-from loguru import logger
 
 
 async def run_listener():
@@ -24,7 +17,6 @@ async def run_listener():
         print(f"🏭 Factory Address: {settings.blockchain.factory_address}")
         print(f"🌐 Blockchain URL: {settings.blockchain.ws_url}")
         print(f"🔴 Redis URL: {settings.redis.url}")
-        print()
     except Exception as e:
         print(f"❌ Environment error: {e}")
         return

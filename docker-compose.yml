@@ -1,0 +1,32 @@
+services:
+  listener-0xpads:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: listener-0xpads
+    restart: unless-stopped
+    volumes:
+      - listener_logs:/app/logs
+    environment:
+      - APP_NAME=listener-0xpads
+      - DEBUG=false
+      - REDIS_HOST=redis-blockchain
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=DFG__0x0165SDF878A594ca25533
+      - REDIS_URL=redis://:DFG__0x0165SDF878A594ca25533@redis-blockchain:6379/0
+      - BLOCKCHAIN_WS_URL=ws://node-stage.0xpads.com
+      - BLOCKCHAIN_HTTP_URL=http://node-stage.0xpads.com
+      - CHAIN_ID=31337
+      - BONDING_CURVE_FACTORY_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+      - LOG_LEVEL=info
+      - NODE_ENV=production
+    networks:
+      - db_ai
+
+networks:
+  db_ai:
+    external: true
+
+volumes:
+  listener_logs:
+    name: 0xpads_listener_logs
