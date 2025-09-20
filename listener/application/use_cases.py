@@ -22,6 +22,7 @@ from .interfaces import (
     IMarketDataRepository, ICacheService, IWebSocketService,
     IChartDataService, IEventProcessingService, IAlertService
 )
+from ..infrastructure.redis.redis_service import RedisService
 
 
 class ProcessTradeEventUseCase:
@@ -35,7 +36,8 @@ class ProcessTradeEventUseCase:
         market_data_repo: IMarketDataRepository,
         cache_service: ICacheService,
         websocket_service: IWebSocketService,
-        alert_service: IAlertService
+        alert_service: IAlertService,
+        redis_service: RedisService
     ):
         self.trade_repo = trade_repo
         self.candle_repo = candle_repo
@@ -44,6 +46,7 @@ class ProcessTradeEventUseCase:
         self.cache_service = cache_service
         self.websocket_service = websocket_service
         self.alert_service = alert_service
+        self.redis_service = redis_service
     
     async def execute(self, raw_event: Dict[str, Any]) -> TradeEvent:
         """پردازش اصلی trade event"""
@@ -316,16 +319,16 @@ class ProcessTradeEventUseCase:
                 'timestamp': trade.timestamp.isoformat(),
                 'market_data': {
                     'market_cap': str(market_data.market_cap.value),
-                    'liquidity': str(market_data.liquidity.value),
                     'volume_24h': str(market_data.volume_24h.value),
+                    'volume_eth_24h': str(market_data.volume_eth_24h.value),
                     'trades_24h': market_data.trades_24h,
-                    'price_change_24h': str(market_data.price_change_24h),
-                    'holders_count': market_data.holders_count
+                    'price_change_24h': str(market_data.price_change_24h.value),
+                    'price_change_percent_24h': str(market_data.price_change_percent_24h)
                 }
             }
             
-            # Send to Redis stream
-            message_id = await self.redis_service.send_event_to_stream('trade', event_data)
+            # Send to Redis stream  
+            message_id = await self.redis_service.send_event_to_stream('Trade', event_data)
             logger.info(f"📡 Trade sent to Redis stream: {message_id}")
             
         except Exception as e:

@@ -498,7 +498,7 @@ class RedisService(ICacheService):
         
         message_fields = {
             'event_type': event_type,
-            'data': event_data,
+            'data': json.dumps(event_data, default=str),  # JSON encode the event data
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'source': 'blockchain_listener'
         }

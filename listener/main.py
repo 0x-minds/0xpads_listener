@@ -167,7 +167,8 @@ class BlockchainListener:
             self.market_data_repo,
             self.redis_service,
             self.websocket_service,
-            self.alert_service
+            self.alert_service,
+            self.redis_service
         )
         
         self.get_chart_data_use_case = GetChartDataUseCase(
