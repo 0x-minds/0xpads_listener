@@ -77,10 +77,13 @@ class ProcessTradeEventUseCase:
         # 8. Broadcast to WebSocket clients
         await self._broadcast_trade_update(trade, market_data)
         
-        # 9. Send to backend
+        # 9. Send to backend via WebSocket (if connected)
         await self._send_to_backend(trade, market_data)
         
-        # 10. Publish domain event
+        # 10. Send to Redis stream for backend consumption
+        await self._send_to_redis_stream(trade, market_data)
+        
+        # 11. Publish domain event
         await event_bus.publish(TradeExecuted(trade))
         
         logger.info(f"✅ Trade processed: {trade.direction.direction_str} {trade.token_amount.value} tokens")
@@ -297,8 +300,39 @@ class ProcessTradeEventUseCase:
         except Exception as e:
             logger.error(f"Error broadcasting: {e}")
     
+    async def _send_to_redis_stream(self, trade: TradeEvent, market_data: MarketData) -> None:
+        """Send trade to Redis stream for backend consumption"""
+        try:
+            event_data = {
+                'token_address': str(trade.token_address),
+                'curve_address': str(trade.curve_address),
+                'user_address': str(trade.user_address),
+                'direction': trade.direction.direction_str,
+                'token_amount': str(trade.token_amount.value),
+                'eth_amount': str(trade.eth_amount.value),
+                'price_before': str(trade.price_before.value),
+                'price_after': str(trade.price_after.value),
+                'tx_hash': str(trade.tx_hash),
+                'timestamp': trade.timestamp.isoformat(),
+                'market_data': {
+                    'market_cap': str(market_data.market_cap.value),
+                    'liquidity': str(market_data.liquidity.value),
+                    'volume_24h': str(market_data.volume_24h.value),
+                    'trades_24h': market_data.trades_24h,
+                    'price_change_24h': str(market_data.price_change_24h),
+                    'holders_count': market_data.holders_count
+                }
+            }
+            
+            # Send to Redis stream
+            message_id = await self.redis_service.send_event_to_stream('trade', event_data)
+            logger.info(f"📡 Trade sent to Redis stream: {message_id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending to Redis stream: {e}")
+    
     async def _send_to_backend(self, trade: TradeEvent, market_data: MarketData) -> None:
-        """ارسال به Node.js backend"""
+        """ارسال به Node.js backend via WebSocket"""
         try:
             await self.websocket_service.send_to_backend('trade_update', {
                 'token_address': str(trade.token_address),

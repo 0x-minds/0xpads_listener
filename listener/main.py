@@ -273,10 +273,8 @@ class BlockchainListener:
                 logger.info(f"✅ Added new bonding curve: {event.get('name', 'unknown')}")
                 
             elif event_type in ['TokensPurchased', 'TokensSold']:
-                # Convert to Trade event format and process
-                trade_event = self._convert_to_trade_event(event)
-                await self.process_trade_use_case.execute(trade_event)
-                logger.info(f"✅ Processed {event_type} as trade event")
+                # Skip these - already processed via Trade event
+                logger.debug(f"⏭️ Skipping {event_type} - already processed as Trade event")
                 
             else:
                 logger.debug(f"Unhandled event type: {event_type}")
