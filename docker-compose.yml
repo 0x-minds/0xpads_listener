@@ -14,8 +14,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=DFG__0x0165SDF878A594ca25533
       - REDIS_URL=redis://:DFG__0x0165SDF878A594ca25533@redis-blockchain:6379/0
-      - BLOCKCHAIN_WS_URL=ws://node-stage.0xpads.com
-      - BLOCKCHAIN_HTTP_URL=http://node-stage.0xpads.com
+      - BLOCKCHAIN_WS_URL=wss://node-stage.0xpads.com
+      - BLOCKCHAIN_HTTP_URL=https://node-stage.0xpads.com
       - CHAIN_ID=31337
       - BONDING_CURVE_FACTORY_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
       - LOG_LEVEL=info
