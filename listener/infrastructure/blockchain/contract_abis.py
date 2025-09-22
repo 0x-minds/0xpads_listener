@@ -345,6 +345,18 @@ INDIVIDUAL_BONDING_CURVE_ABI = [
         "outputs": [{"name": "", "type": "string"}],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getContractStats",
+        "outputs": [
+            {"name": "currentReserves", "type": "uint256"},
+            {"name": "tokensSoldSoFar", "type": "uint256"},
+            {"name": "availableTokens", "type": "uint256"},
+            {"name": "currentPrice", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ]
 

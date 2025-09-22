@@ -17,6 +17,7 @@ from .infrastructure.logging.logger_config import setup_logging
 from .application.use_cases import ProcessTradeEventUseCase, GetChartDataUseCase, ManageBondingCurvesUseCase
 from .application.services.chart_service import ChartService
 from .application.services.alert_service import AlertService
+from .application.services.price_service import PriceService
 from .infrastructure.repositories.redis_repositories import (
     RedisTradeRepository, RedisCandleRepository, RedisBondingCurveRepository, 
     RedisMarketDataRepository
@@ -43,6 +44,7 @@ class BlockchainListener:
         # Application services
         self.chart_service: Optional[ChartService] = None
         self.alert_service: Optional[AlertService] = None
+        self.price_service: Optional[PriceService] = None
         
         # Use cases
         self.process_trade_use_case: Optional[ProcessTradeEventUseCase] = None
@@ -154,6 +156,10 @@ class BlockchainListener:
             self.websocket_service
         )
         
+        self.price_service = PriceService(
+            self.redis_service
+        )
+        
         logger.info("✅ Application services initialized")
     
     async def _initialize_use_cases(self) -> None:
@@ -204,6 +210,9 @@ class BlockchainListener:
     async def _run_event_loop(self) -> None:
         """🔄 Main event processing loop"""
         logger.info("🔄 Starting main event processing loop...")
+        
+        # Start price service
+        await self.price_service.start()
         
         # Create tasks
         tasks = [
@@ -357,6 +366,7 @@ class BlockchainListener:
                 redis_health = await self.redis_service.health_check()
                 blockchain_health = await self.blockchain_service.health_check()
                 websocket_health = await self.websocket_service.health_check()
+                price_health = await self.price_service.health_check()
                 
                 # Log unhealthy services
                 if redis_health['status'] != 'healthy':
@@ -367,6 +377,9 @@ class BlockchainListener:
                     
                 if websocket_health['status'] != 'healthy':
                     logger.warning(f"⚠️ WebSocket unhealthy: {websocket_health}")
+                    
+                if price_health['status'] != 'healthy':
+                    logger.warning(f"⚠️ Price service unhealthy: {price_health}")
                 
                 # Wait 30 seconds before next check
                 await asyncio.sleep(30)
@@ -408,6 +421,9 @@ class BlockchainListener:
     async def _cleanup(self) -> None:
         try:
             # Stop services
+            if self.price_service:
+                await self.price_service.stop()
+            
             if self.websocket_service:
                 await self.websocket_service.stop_server()
             

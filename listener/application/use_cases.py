@@ -522,8 +522,39 @@ class ManageBondingCurvesUseCase:
             }
         })
         
+        # Send to Redis stream for backend consumption
+        await self._send_to_redis_stream(curve, curve_data)
+        
         return curve
     
     async def get_all_active_curves(self) -> List[BondingCurve]:
-        """دریافت همه curves فعال"""
         return await self.curve_repo.get_all_active_curves()
+    
+    async def _send_to_redis_stream(self, curve: BondingCurve, curve_data: Dict[str, Any]) -> None:
+        """Send new curve event to Redis stream for backend consumption"""
+        try:
+            event_data = {
+                'token_address': str(curve.token_address),
+                'curve_address': str(curve.curve_address),
+                'creator_address': str(curve.creator_address),
+                'name': curve.name,
+                'symbol': curve.symbol,
+                'total_supply': str(curve.total_supply.value),
+                'current_supply': str(curve.current_supply.value),
+                'current_price': str(curve.current_price.value),
+                'reserve_balance': str(curve.reserve_balance.value),
+                'deployed_at': curve.deployed_at.isoformat(),
+                'is_active': curve.is_active,
+                'block_number': curve_data.get('block_number'),
+                'block_timestamp': curve_data.get('block_timestamp'),
+                'tx_hash': curve_data.get('tx_hash'),
+                'log_index': curve_data.get('log_index'),
+                'timestamp': curve_data.get('timestamp')
+            }
+            
+            # Send to Redis stream  
+            message_id = await self.cache_service.send_event_to_stream('BondingCurveDeployed', event_data)
+            logger.info(f"📡 New curve sent to Redis stream: {message_id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending curve to Redis stream: {e}")

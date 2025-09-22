@@ -1,7 +1,4 @@
-"""
-⛓️ Blockchain Service Implementation  
-WebSocket connection به blockchain برای event listening
-"""
+
 import asyncio
 from typing import Dict, Any, Optional, AsyncIterator, List, Tuple
 from web3 import AsyncWeb3, Web3
@@ -180,7 +177,6 @@ class BlockchainService(IBlockchainService):
             logger.error(f"Error disconnecting blockchain: {e}")
     
     async def is_connected(self) -> bool:
-        """وضعیت اتصال"""
         if not self._is_connected or not self._w3:
             return False
         
@@ -394,14 +390,64 @@ class BlockchainService(IBlockchainService):
             # Add new curve contract
             await self._add_curve_contract(event_args['curveAddress'])
             
+            # Query initial curve state
+            curve_contract = self._curve_contracts.get(event_args['curveAddress'])
+            if curve_contract:
+                try:
+                    # Get contract stats: [reserveBalance, tokensSold, availableTokens, currentPrice]
+                    stats = await curve_contract.functions.getContractStats().call()
+                    # Get total supply from the token contract using minimal ERC20 ABI
+                    erc20_abi = [
+                        {
+                            "constant": True,
+                            "inputs": [],
+                            "name": "totalSupply",
+                            "outputs": [{"name": "", "type": "uint256"}],
+                            "type": "function"
+                        }
+                    ]
+                    token_contract = self._w3.eth.contract(
+                        address=event_args['tokenAddress'],
+                        abi=erc20_abi
+                    )
+                    total_supply = await token_contract.functions.totalSupply().call()
+                    
+                    return {
+                        'event_type': 'BondingCurveDeployed',
+                        'token_address': event_args['tokenAddress'],
+                        'curve_address': event_args['curveAddress'],
+                        'creator_address': event_args['creator'],
+                        'name': event_args['name'],
+                        'symbol': event_args['symbol'],
+                        'timestamp': event_args['timestamp'],
+                        'total_supply': str(total_supply),
+                        'current_supply': str(stats[1]),  # tokensSold
+                        'current_price': str(stats[3]),   # currentPrice
+                        'reserve_balance': str(stats[0]), # reserveBalance
+                        'block_number': log_entry['blockNumber'],
+                        'block_timestamp': block['timestamp'],
+                        'block_hash': block['hash'].hex() if hasattr(block['hash'], 'hex') else str(block['hash']),
+                        'tx_hash': log_entry['transactionHash'].hex() if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
+                        'log_index': log_entry['logIndex']
+                    }
+                except Exception as query_error:
+                    logger.error(f"Failed to query initial curve state: {query_error}")
+                    # Fall back to basic data without curve state
+                    pass
+            
+            # Fallback return without curve state data
             return {
                 'event_type': 'BondingCurveDeployed',
                 'token_address': event_args['tokenAddress'],
                 'curve_address': event_args['curveAddress'],
-                'creator': event_args['creator'],
+                'creator_address': event_args['creator'],
                 'name': event_args['name'],
                 'symbol': event_args['symbol'],
                 'timestamp': event_args['timestamp'],
+                'total_supply': '0',      # Default values
+                'current_supply': '0',
+                'current_price': '0',
+                'reserve_balance': '0',
                 'block_number': log_entry['blockNumber'],
                 'block_timestamp': block['timestamp'],
                 'block_hash': block['hash'].hex() if hasattr(block['hash'], 'hex') else str(block['hash']),
@@ -526,7 +572,6 @@ class BlockchainService(IBlockchainService):
         }
     
     async def health_check(self) -> Dict[str, Any]:
-        """بررسی سلامت"""
         try:
             if await self.is_connected():
                 latest_block = await self.get_latest_block()
