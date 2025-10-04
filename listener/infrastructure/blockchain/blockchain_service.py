@@ -142,10 +142,40 @@ class BlockchainService(IBlockchainService):
             
             self._curve_contracts[curve_address] = contract
             
+            # Set up event filters for the new curve
+            await self._setup_curve_event_filters(curve_address, contract)
+            
             logger.info(f"➕ Added curve contract: {curve_address[:8]}...")
             
         except Exception as e:
             logger.error(f"Failed to add curve contract {curve_address}: {e}")
+    
+    async def _setup_curve_event_filters(self, curve_address: str, curve_contract) -> None:
+        """Setup event filters for a specific curve contract"""
+        try:
+            # Trade events
+            trade_filter = await curve_contract.events.Trade.create_filter(
+                from_block='latest'
+            )
+            self._event_filters.append(trade_filter)
+            
+            # TokensPurchased events
+            purchase_filter = await curve_contract.events.TokensPurchased.create_filter(
+                from_block='latest'
+            )
+            self._event_filters.append(purchase_filter)
+            
+            # TokensSold events
+            sale_filter = await curve_contract.events.TokensSold.create_filter(
+                from_block='latest'
+            )
+            self._event_filters.append(sale_filter)
+            
+            logger.info(f"📡 Setup event filters for curve: {curve_address[:8]}...")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup filters for {curve_address}: {e}")
+            raise
     
     async def disconnect(self) -> None:
         """Disconnect from blockchain"""
@@ -306,24 +336,7 @@ class BlockchainService(IBlockchainService):
             # Bonding curve events filters
             for curve_address, curve_contract in self._curve_contracts.items():
                 try:
-                    # Trade events
-                    trade_filter = await curve_contract.events.Trade.create_filter(
-                        from_block='latest'
-                    )
-                    self._event_filters.append(trade_filter)
-                    
-                    # TokensPurchased events
-                    purchase_filter = await curve_contract.events.TokensPurchased.create_filter(
-                        from_block='latest'
-                    )
-                    self._event_filters.append(purchase_filter)
-                    
-                    # TokensSold events
-                    sale_filter = await curve_contract.events.TokensSold.create_filter(
-                        from_block='latest'
-                    )
-                    self._event_filters.append(sale_filter)
-                    
+                    await self._setup_curve_event_filters(curve_address, curve_contract)
                 except Exception as e:
                     logger.error(f"Failed to setup filters for {curve_address}: {e}")
                     continue

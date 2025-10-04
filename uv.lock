@@ -6,6 +6,7 @@ name = "0xpads-listener"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "asyncio-mqtt" },
     { name = "fastapi" },
     { name = "hiredis" },
@@ -23,6 +24,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "asyncio-mqtt", specifier = ">=0.16.2" },
     { name = "fastapi", specifier = ">=0.116.2" },
     { name = "hiredis", specifier = ">=3.2.1" },
