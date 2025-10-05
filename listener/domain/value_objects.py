@@ -153,7 +153,7 @@ class TransactionHash:
 
 
 class TradeDirection(BaseModel):
-    """جهت معامله"""
+    """Trade direction"""
     is_buy: bool
     
     @property
@@ -167,7 +167,7 @@ class TradeDirection(BaseModel):
 
 @dataclass(frozen=True)
 class PriceRange:
-    """محدوده قیمت برای OHLCV"""
+    """Price range for OHLCV"""
     open: Price
     high: Price
     low: Price
@@ -181,25 +181,25 @@ class PriceRange:
     
     @property
     def price_change(self) -> Price:
-        """تغییر قیمت از open به close"""
+        """Price change from open to close"""
         return Price(self.close.value - self.open.value)
     
     @property
     def price_change_percent(self) -> Decimal:
-        """درصد تغییر قیمت"""
+        """Price change percentage"""
         if self.open.value == 0:
             return Decimal('0')
         return (self.price_change.value / self.open.value) * Decimal('100')
     
     @property
     def is_bullish(self) -> bool:
-        """آیا candle صعودی است"""
+        """Whether candle is bullish"""
         return self.close.value > self.open.value
 
 
 @dataclass(frozen=True)
 class VolumeData:
-    """اطلاعات حجم معاملات"""
+    """Trading volume information"""
     total_volume: Volume
     buy_volume: Volume
     sell_volume: Volume
@@ -215,14 +215,14 @@ class VolumeData:
     
     @property
     def buy_sell_ratio(self) -> Optional[Decimal]:
-        """نسبت خرید به فروش"""
+        """Buy to sell ratio"""
         if self.sell_volume.value == 0:
             return None
         return self.buy_volume.value / self.sell_volume.value
     
     @property
     def average_trade_size(self) -> Volume:
-        """میانگین اندازه معامله"""
+        """Average trade size"""
         if self.trade_count == 0:
             return Volume(Decimal('0'))
         return Volume(self.total_volume.value / Decimal(str(self.trade_count)))

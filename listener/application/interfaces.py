@@ -1,6 +1,6 @@
 """
 🔌 Application Interfaces
-Repository patterns و service interfaces
+Repository patterns and service interfaces
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any, AsyncIterator
@@ -15,11 +15,11 @@ from ..domain.events import DomainEvent
 
 
 class ITradeRepository(ABC):
-    """Repository برای trades"""
+    """Repository for trades"""
     
     @abstractmethod
     async def save_trade(self, trade: TradeEvent) -> None:
-        """ذخیره معامله"""
+        """Save trade"""
         pass
     
     @abstractmethod
@@ -29,7 +29,7 @@ class ITradeRepository(ABC):
         limit: int = 100,
         after_timestamp: Optional[datetime] = None
     ) -> List[TradeEvent]:
-        """دریافت معاملات یک توکن"""
+        """Get trades for a token"""
         pass
     
     @abstractmethod
@@ -39,21 +39,21 @@ class ITradeRepository(ABC):
         start_time: datetime,
         end_time: datetime
     ) -> List[TradeEvent]:
-        """دریافت معاملات در یک بازه زمانی"""
+        """Get trades in time range"""
         pass
     
     @abstractmethod
     async def get_trade_count_24h(self, token_address: TokenAddress) -> int:
-        """تعداد معاملات 24 ساعت گذشته"""
+        """Get trade count for last 24 hours"""
         pass
 
 
 class ICandleRepository(ABC):
-    """Repository برای OHLCV candles"""
+    """Repository for OHLCV candles"""
     
     @abstractmethod
     async def save_candle(self, candle: OHLCVCandle) -> None:
-        """ذخیره candle"""
+        """Save candle"""
         pass
     
     @abstractmethod
@@ -64,7 +64,7 @@ class ICandleRepository(ABC):
         limit: int = 100,
         after_timestamp: Optional[int] = None
     ) -> List[OHLCVCandle]:
-        """دریافت candles"""
+        """Get candles"""
         pass
     
     @abstractmethod
@@ -73,12 +73,12 @@ class ICandleRepository(ABC):
         token_address: TokenAddress,
         interval: TimeInterval
     ) -> Optional[OHLCVCandle]:
-        """دریافت آخرین candle"""
+        """Get latest candle"""
         pass
     
     @abstractmethod
     async def update_candle(self, candle: OHLCVCandle) -> None:
-        """به‌روزرسانی candle موجود"""
+        """Update existing candle"""
         pass
     
     @abstractmethod
@@ -88,74 +88,108 @@ class ICandleRepository(ABC):
         interval: TimeInterval,
         older_than: datetime
     ) -> int:
-        """حذف candles قدیمی"""
+        """Delete old candles"""
         pass
 
 
 class IBondingCurveRepository(ABC):
-    """Repository برای bonding curves"""
+    """Repository for bonding curves"""
     
     @abstractmethod
     async def save_curve(self, curve: BondingCurve) -> None:
-        """ذخیره bonding curve"""
+        """Save bonding curve"""
         pass
     
     @abstractmethod
     async def get_curve_by_token(self, token_address: TokenAddress) -> Optional[BondingCurve]:
-        """دریافت curve بر اساس token address"""
+        """Get curve by token address"""
         pass
     
     @abstractmethod
     async def get_curve_by_address(self, curve_address: TokenAddress) -> Optional[BondingCurve]:
-        """دریافت curve بر اساس curve address"""
+        """Get curve by curve address"""
         pass
     
     @abstractmethod
     async def get_all_active_curves(self) -> List[BondingCurve]:
-        """دریافت همه curves فعال"""
+        """Get all active curves"""
         pass
     
     @abstractmethod
     async def update_curve(self, curve: BondingCurve) -> None:
-        """به‌روزرسانی curve"""
+        """Update curve"""
         pass
     
     @abstractmethod
     async def get_curve_count(self) -> int:
-        """تعداد کل curves"""
+        """Get total curves count"""
         pass
 
 
 class IMarketDataRepository(ABC):
-    """Repository برای market data"""
+    """Repository for market data"""
     
     @abstractmethod
     async def save_market_data(self, market_data: MarketData) -> None:
-        """ذخیره market data"""
+        """Save market data"""
         pass
     
     @abstractmethod
     async def get_market_data(self, token_address: TokenAddress) -> Optional[MarketData]:
-        """دریافت market data"""
+        """Get market data"""
         pass
     
     @abstractmethod
     async def get_all_market_data(self) -> List[MarketData]:
-        """دریافت همه market data"""
+        """Get all market data"""
         pass
     
     @abstractmethod
     async def update_market_data(self, market_data: MarketData) -> None:
-        """به‌روزرسانی market data"""
+        """Update market data"""
+        pass
+
+
+class IBurnEventRepository(ABC):
+    """Repository for burn events"""
+    
+    @abstractmethod
+    async def save_burn_event(self, burn_event: Dict[str, Any]) -> None:
+        """Save burn event"""
+        pass
+    
+    @abstractmethod
+    async def get_burn_events_by_token(
+        self, 
+        token_address: TokenAddress, 
+        limit: int = 100,
+        after_timestamp: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """Get burn events for a token"""
+        pass
+    
+    @abstractmethod
+    async def get_burn_events_by_burner(
+        self,
+        burner_address: TokenAddress,
+        limit: int = 100,
+        after_timestamp: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """Get burn events for a burner"""
+        pass
+    
+    @abstractmethod
+    async def get_recent_burn_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent burn events"""
         pass
 
 
 class IEventRepository(ABC):
-    """Repository برای domain events"""
+    """Repository for domain events"""
     
     @abstractmethod
     async def save_event(self, event: DomainEvent) -> None:
-        """ذخیره domain event"""
+        """Save domain event"""
         pass
     
     @abstractmethod
@@ -165,51 +199,51 @@ class IEventRepository(ABC):
         limit: int = 100,
         after_timestamp: Optional[datetime] = None
     ) -> List[DomainEvent]:
-        """دریافت events بر اساس نوع"""
+        """Get events by type"""
         pass
     
     @abstractmethod
     async def get_recent_events(self, limit: int = 100) -> List[DomainEvent]:
-        """دریافت events اخیر"""
+        """Get recent events"""
         pass
 
 
 class IBlockchainService(ABC):
-    """Service برای ارتباط با blockchain"""
+    """Service for blockchain communication"""
     
     @abstractmethod
     async def connect(self) -> None:
-        """اتصال به blockchain"""
+        """Connect to blockchain"""
         pass
     
     @abstractmethod
     async def disconnect(self) -> None:
-        """قطع اتصال"""
+        """Disconnect"""
         pass
     
     @abstractmethod
     async def is_connected(self) -> bool:
-        """وضعیت اتصال"""
+        """Connection status"""
         pass
     
     @abstractmethod
     async def get_latest_block(self) -> int:
-        """دریافت آخرین block"""
+        """Get latest block"""
         pass
     
     @abstractmethod
     async def subscribe_to_events(self) -> AsyncIterator[Dict[str, Any]]:
-        """subscribe به events"""
+        """Subscribe to events"""
         pass
     
     @abstractmethod
     async def get_contract_info(self, address: TokenAddress) -> Dict[str, Any]:
-        """دریافت اطلاعات contract"""
+        """Get contract info"""
         pass
 
 
 class ICacheService(ABC):
-    """Service برای caching (Redis)"""
+    """Service for caching (Redis)"""
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
@@ -269,46 +303,46 @@ class ICacheService(ABC):
 
 
 class IWebSocketService(ABC):
-    """Service برای WebSocket communication"""
+    """Service for WebSocket communication"""
     
     @abstractmethod
     async def start_server(self) -> None:
-        """شروع WebSocket server"""
+        """Start WebSocket server"""
         pass
     
     @abstractmethod
     async def stop_server(self) -> None:
-        """توقف WebSocket server"""
+        """Stop WebSocket server"""
         pass
     
     @abstractmethod
     async def broadcast(self, message: Dict[str, Any]) -> None:
-        """Broadcast پیام به همه clients"""
+        """Broadcast message to all clients"""
         pass
     
     @abstractmethod
     async def send_to_room(self, room: str, message: Dict[str, Any]) -> None:
-        """ارسال پیام به room مشخص"""
+        """Send message to specific room"""
         pass
     
     @abstractmethod
     async def connect_to_backend(self) -> None:
-        """اتصال به Node.js backend"""
+        """Connect to Node.js backend"""
         pass
     
     @abstractmethod
     async def send_to_backend(self, event: str, data: Dict[str, Any]) -> None:
-        """ارسال data به backend"""
+        """Send data to backend"""
         pass
     
     @abstractmethod
     async def get_active_connections(self) -> int:
-        """تعداد اتصالات فعال"""
+        """Get active connections count"""
         pass
 
 
 class IChartDataService(ABC):
-    """Service برای chart data management"""
+    """Service for chart data management"""
     
     @abstractmethod
     async def get_chart_data(
@@ -317,65 +351,65 @@ class IChartDataService(ABC):
         interval: TimeInterval,
         limit: int = 100
     ) -> ChartData:
-        """دریافت chart data"""
+        """Get chart data"""
         pass
     
     @abstractmethod
     async def get_real_time_data(self, token_address: TokenAddress) -> MarketData:
-        """دریافت real-time data"""
+        """Get real-time data"""
         pass
     
     @abstractmethod
     async def get_supported_tokens(self) -> List[BondingCurve]:
-        """دریافت لیست tokens پشتیبانی شده"""
+        """Get list of supported tokens"""
         pass
     
     @abstractmethod
     async def update_chart_data(self, trade: TradeEvent) -> None:
-        """به‌روزرسانی chart data با معامله جدید"""
+        """Update chart data with new trade"""
         pass
 
 
 class IEventProcessingService(ABC):
-    """Service برای processing events"""
+    """Service for processing events"""
     
     @abstractmethod
     async def process_trade_event(self, raw_event: Dict[str, Any]) -> TradeEvent:
-        """پردازش raw trade event"""
+        """Process raw trade event"""
         pass
     
     @abstractmethod
     async def process_batch_events(self, raw_events: List[Dict[str, Any]]) -> List[TradeEvent]:
-        """پردازش batch events"""
+        """Process batch events"""
         pass
     
     @abstractmethod
     async def validate_event(self, raw_event: Dict[str, Any]) -> bool:
-        """اعتبارسنجی event"""
+        """Validate event"""
         pass
     
     @abstractmethod
     async def enrich_event_data(self, trade: TradeEvent) -> TradeEvent:
-        """غنی‌سازی event data"""
+        """Enrich event data"""
         pass
 
 
 class IAlertService(ABC):
-    """Service برای alerts و notifications"""
+    """Service for alerts and notifications"""
     
     @abstractmethod
     async def check_price_alerts(self, market_data: MarketData) -> None:
-        """بررسی price alerts"""
+        """Check price alerts"""
         pass
     
     @abstractmethod
     async def check_volume_alerts(self, candle: OHLCVCandle) -> None:
-        """بررسی volume alerts"""
+        """Check volume alerts"""
         pass
     
     @abstractmethod
     async def send_alert(self, alert_type: str, data: Dict[str, Any]) -> None:
-        """ارسال alert"""
+        """Send alert"""
         pass
     
     @abstractmethod
@@ -386,34 +420,34 @@ class IAlertService(ABC):
         alert_type: str,
         threshold: Decimal
     ) -> str:
-        """ثبت alert جدید"""
+        """Register new alert"""
         pass
 
 
 class IMetricsService(ABC):
-    """Service برای performance metrics"""
+    """Service for performance metrics"""
     
     @abstractmethod
     async def record_metric(self, name: str, value: float, tags: Optional[Dict[str, str]] = None) -> None:
-        """ثبت metric"""
+        """Record metric"""
         pass
     
     @abstractmethod
     async def increment_counter(self, name: str, tags: Optional[Dict[str, str]] = None) -> None:
-        """افزایش counter"""
+        """Increment counter"""
         pass
     
     @abstractmethod
     async def record_timer(self, name: str, duration: float, tags: Optional[Dict[str, str]] = None) -> None:
-        """ثبت timer"""
+        """Record timer"""
         pass
     
     @abstractmethod
     async def get_metrics_summary(self) -> Dict[str, Any]:
-        """دریافت خلاصه metrics"""
+        """Get metrics summary"""
         pass
     
     @abstractmethod
     async def get_system_health(self) -> Dict[str, Any]:
-        """دریافت وضعیت سیستم"""
+        """Get system status"""
         pass

@@ -26,6 +26,7 @@ class BlockchainService(IBlockchainService):
         # Contract instances
         self._factory_contract: Optional[AsyncContract] = None
         self._curve_contracts: Dict[str, AsyncContract] = {}
+        self._token_contracts: Dict[str, AsyncContract] = {}
         
         # Event filters
         self._event_filters: List[Any] = []
@@ -117,10 +118,12 @@ class BlockchainService(IBlockchainService):
             
             logger.info(f"📊 Found {len(deployed_curves)} existing bonding curves")
             
-            # Setup contracts for each curve
+            # Setup contracts for each curve and its token
             for curve_info in deployed_curves:
                 curve_address = curve_info[2]  # curveAddress field
+                token_address = curve_info[0]  # tokenAddress field
                 await self._add_curve_contract(curve_address)
+                await self._add_token_contract(token_address)
             
         except Exception as e:
             logger.error(f"Failed to discover existing curves: {e}")
@@ -149,6 +152,46 @@ class BlockchainService(IBlockchainService):
             
         except Exception as e:
             logger.error(f"Failed to add curve contract {curve_address}: {e}")
+    
+    async def _add_token_contract(self, token_address: str) -> None:
+        """Add a token contract for event listening"""
+        try:
+            if token_address in self._token_contracts:
+                logger.debug(f"Token contract {token_address} already tracked")
+                return
+            
+            # Create contract instance with Fan Token ABI
+            from .contract_abis import FAN_TOKEN_ABI
+            contract = self._w3.eth.contract(
+                address=Web3.to_checksum_address(token_address),
+                abi=FAN_TOKEN_ABI
+            )
+            
+            # Store contract
+            self._token_contracts[token_address] = contract
+            
+            # Setup event filters for this token
+            await self._setup_token_event_filters(token_address, contract)
+            
+            logger.info(f"➕ Added token contract: {token_address[:8]}...")
+            
+        except Exception as e:
+            logger.error(f"Failed to add token contract {token_address}: {e}")
+    
+    async def _setup_token_event_filters(self, token_address: str, token_contract) -> None:
+        """Setup event filters for a specific token contract"""
+        try:
+            # CommunityBurn events
+            burn_filter = await token_contract.events.CommunityBurn.create_filter(
+                from_block='latest'
+            )
+            self._event_filters.append(burn_filter)
+            
+            logger.info(f"🔥 Setup CommunityBurn filter for token: {token_address[:8]}...")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup token filters for {token_address}: {e}")
+            raise
     
     async def _setup_curve_event_filters(self, curve_address: str, curve_contract) -> None:
         """Setup event filters for a specific curve contract"""
@@ -341,6 +384,14 @@ class BlockchainService(IBlockchainService):
                     logger.error(f"Failed to setup filters for {curve_address}: {e}")
                     continue
             
+            # Token contract events filters
+            for token_address, token_contract in self._token_contracts.items():
+                try:
+                    await self._setup_token_event_filters(token_address, token_contract)
+                except Exception as e:
+                    logger.error(f"Failed to setup token filters for {token_address}: {e}")
+                    continue
+            
             logger.info(f"📡 Setup {len(self._event_filters)} event filters")
             
         except Exception as e:
@@ -367,6 +418,10 @@ class BlockchainService(IBlockchainService):
             # Check if it's from a bonding curve
             elif log_entry['address'] in self._curve_contracts:
                 event_data = await self._process_curve_event(log_entry, block, tx)
+            
+            # Check if it's from a token contract
+            elif log_entry['address'] in self._token_contracts:
+                event_data = await self._process_token_event(log_entry, block, tx)
             
             return event_data
             
@@ -402,6 +457,9 @@ class BlockchainService(IBlockchainService):
             
             # Add new curve contract
             await self._add_curve_contract(event_args['curveAddress'])
+            
+            # Add token contract for burn events
+            await self._add_token_contract(event_args['tokenAddress'])
             
             # Query initial curve state
             curve_contract = self._curve_contracts.get(event_args['curveAddress'])
@@ -569,6 +627,64 @@ class BlockchainService(IBlockchainService):
             logger.error(f"Error processing curve event: {e}")
             return None
     
+    async def _process_token_event(
+        self,
+        log_entry: LogReceipt,
+        block: Dict[str, Any],
+        tx: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Process token contract events"""
+        try:
+            token_address = log_entry['address']
+            token_contract = self._token_contracts[token_address]
+            
+            # Check if it's already decoded (from event filter)
+            if hasattr(log_entry, 'event') and log_entry.event == 'CommunityBurn':
+                event_args = log_entry['args']
+                
+                # Get token decimals for conversion
+                try:
+                    decimals = await token_contract.functions.decimals().call()
+                    decimal_divisor = 10 ** decimals
+                    
+                    # Convert amounts from wei to human-readable format
+                    amount_human = event_args['amount'] / decimal_divisor
+                    total_burned_human = event_args['totalBurned'] / decimal_divisor
+                    
+                    logger.info(f"🔥 Converting burn amounts: {event_args['amount']} -> {amount_human} (decimals: {decimals})")
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to get decimals for {token_address}, using raw amounts: {e}")
+                    amount_human = event_args['amount']
+                    total_burned_human = event_args['totalBurned']
+                
+                event_data = {
+                    'event_type': 'CommunityBurn',
+                    'token_address': token_address,
+                    'creator': event_args['creator'],
+                    'amount': str(amount_human),
+                    'totalBurned': str(total_burned_human),
+                    'reason': event_args['reason'],
+                    'timestamp': int(event_args['timestamp']),
+                    'block_number': log_entry['blockNumber'],
+                    'block_timestamp': block['timestamp'],
+                    'block_hash': f"0x{log_entry['blockHash'].hex()}" if hasattr(log_entry['blockHash'], 'hex') else str(log_entry['blockHash']),
+                    'transaction_hash': f"0x{log_entry['transactionHash'].hex()}" if hasattr(log_entry['transactionHash'], 'hex') else str(log_entry['transactionHash']),
+                    'log_index': log_entry['logIndex']
+                }
+                logger.info(f"🔥 CommunityBurn event processed: {event_args['creator'][:8]}... burned {event_args['amount']} tokens - {event_args['reason']}")
+                return event_data
+                
+            else:
+                event_name = getattr(log_entry, 'event', 'unknown')
+                logger.warning(f"🤷 Unknown token event '{event_name}' from {token_address}")
+                logger.debug(f"Token log_entry structure: {type(log_entry)}, data: {log_entry}")
+                return None
+            
+        except Exception as e:
+            logger.error(f"Error processing token event: {e}")
+            return None
+    
     # Health check and stats
     async def get_connection_stats(self) -> Dict[str, Any]:
         """آمار اتصال"""
@@ -580,6 +696,7 @@ class BlockchainService(IBlockchainService):
             'last_block_number': self._last_block_number,
             'events_received': self._events_received,
             'curve_contracts': len(self._curve_contracts),
+            'token_contracts': len(self._token_contracts),
             'event_filters': len(self._event_filters),
             'reconnect_attempts': self._reconnect_attempts
         }
@@ -595,7 +712,8 @@ class BlockchainService(IBlockchainService):
                     'latest_block': latest_block,
                     'chain_id': self.settings.chain_id,
                     'events_received': self._events_received,
-                    'curve_contracts': len(self._curve_contracts)
+                    'curve_contracts': len(self._curve_contracts),
+                    'token_contracts': len(self._token_contracts)
                 }
             else:
                 return {

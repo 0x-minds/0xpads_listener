@@ -1,6 +1,6 @@
 """
 🔴 Redis Service Implementation
-Cache service با Redis
+Cache service with Redis
 """
 import json
 import asyncio
@@ -15,7 +15,7 @@ from ...config.settings import Settings
 
 
 class RedisService(ICacheService):
-    """Redis implementation برای cache service"""
+    """Redis implementation for cache service"""
     
     def __init__(self, settings: Settings):
         self.settings = settings.redis
@@ -77,7 +77,7 @@ class RedisService(ICacheService):
         return self._is_connected
     
     async def _ensure_connection(self) -> None:
-        """اطمینان از اتصال"""
+        """Ensure connection is established"""
         if not self._is_connected:
             await self.connect()
     
@@ -191,7 +191,7 @@ class RedisService(ICacheService):
             logger.error(f"Error subscribing to {channel}: {e}")
             raise
     
-    # Sorted Set operations (برای time-series data)
+    # Sorted Set operations (for time-series data)
     async def zadd(self, key: str, mapping: Dict[str, float]) -> None:
         """Add to sorted set"""
         await self._ensure_connection()
@@ -233,7 +233,7 @@ class RedisService(ICacheService):
             logger.error(f"Error removing range from sorted set {key}: {e}")
             return 0
     
-    # List operations (برای queues)
+    # List operations (for queues)
     async def lpush(self, key: str, *values: Any) -> None:
         """Push to left of list"""
         await self._ensure_connection()
@@ -273,7 +273,7 @@ class RedisService(ICacheService):
             logger.error(f"Error getting list length {key}: {e}")
             return 0
     
-    # Hash operations (برای structured data)
+    # Hash operations (for structured data)
     async def hset(self, key: str, mapping: Dict[str, Any]) -> None:
         """Set hash fields"""
         await self._ensure_connection()
@@ -329,7 +329,7 @@ class RedisService(ICacheService):
     
     # Utility methods
     async def flushdb(self) -> None:
-        """Flush current database (برای testing)"""
+        """Flush current database (for testing)"""
         await self._ensure_connection()
         
         try:
@@ -371,7 +371,7 @@ class RedisService(ICacheService):
     
     # Specialized methods for our use case
     async def cache_trade_data(self, token_address: str, trade_data: Dict[str, Any]) -> None:
-        """Cache آخرین trade data"""
+        """Cache latest trade data"""
         key = f"{self.settings.trades_key_prefix}latest:{token_address}"
         await self.set_json(key, trade_data, ttl=300)  # 5 minutes
     
@@ -386,12 +386,12 @@ class RedisService(ICacheService):
         await self.set_json(key, market_data, ttl=30)  # 30 seconds
     
     async def get_cached_market_data(self, token_address: str) -> Optional[Dict[str, Any]]:
-        """دریافت cached market data"""
+        """Get cached market data"""
         key = f"{self.settings.market_data_key_prefix}{token_address}"
         return await self.get_json(key)
     
     async def add_to_trade_stream(self, token_address: str, trade_data: Dict[str, Any]) -> None:
-        """اضافه کردن به trade stream (time-series)"""
+        """Add to trade stream (time-series)"""
         timestamp = trade_data.get('timestamp', asyncio.get_event_loop().time())
         key = f"{self.settings.trades_key_prefix}stream:{token_address}"
         
@@ -404,7 +404,7 @@ class RedisService(ICacheService):
             await self._pool.zremrangebyrank(key, 0, total_trades - 1001)
     
     async def get_recent_trades(self, token_address: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """دریافت trades اخیر"""
+        """Get recent trades"""
         key = f"{self.settings.trades_key_prefix}stream:{token_address}"
         
         # Get most recent trades
@@ -422,7 +422,7 @@ class RedisService(ICacheService):
         return list(reversed(trades))  # Most recent first
     
     async def cleanup_old_data(self, hours: int = 24) -> None:
-        """پاک کردن داده‌های قدیمی"""
+        """Clean up old data"""
         cutoff_time = asyncio.get_event_loop().time() - (hours * 3600)
         
         # Clean up trade streams
@@ -437,7 +437,7 @@ class RedisService(ICacheService):
     
     # Health check
     async def health_check(self) -> Dict[str, Any]:
-        """بررسی سلامت Redis"""
+        """Check Redis health"""
         try:
             await self._ensure_connection()
             

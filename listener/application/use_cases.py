@@ -1,6 +1,6 @@
 """
 🎯 Application Use Cases
-Business logic و use cases
+Business logic and use cases
 """
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
@@ -19,14 +19,14 @@ from ..domain.events import (
 )
 from .interfaces import (
     ITradeRepository, ICandleRepository, IBondingCurveRepository,
-    IMarketDataRepository, ICacheService, IWebSocketService,
+    IMarketDataRepository, IBurnEventRepository, ICacheService, IWebSocketService,
     IChartDataService, IEventProcessingService, IAlertService
 )
 from ..infrastructure.redis.redis_service import RedisService
 
 
 class ProcessTradeEventUseCase:
-    """Use case برای پردازش trade event"""
+    """Use case for processing trade events"""
     
     def __init__(
         self,
@@ -558,3 +558,115 @@ class ManageBondingCurvesUseCase:
             
         except Exception as e:
             logger.error(f"Error sending curve to Redis stream: {e}")
+
+
+class ProcessBurnEventUseCase:
+    """Use case for processing burn events"""
+    
+    def __init__(
+        self,
+        burn_repo: IBurnEventRepository,
+        cache_service: ICacheService,
+        websocket_service: IWebSocketService,
+        redis_service: RedisService
+    ):
+        self.burn_repo = burn_repo
+        self.cache_service = cache_service
+        self.websocket_service = websocket_service
+        self.redis_service = redis_service
+    
+    async def execute(self, raw_event: Dict[str, Any]) -> None:
+        """Process CommunityBurn event"""
+        try:
+            logger.info(f"🔥 Processing burn event: {raw_event.get('transaction_hash', 'unknown')[:10]}...")
+            
+            # Extract burn event data
+            burn_event = await self._extract_burn_event_data(raw_event)
+            
+            # Save to Redis
+            await self.burn_repo.save_burn_event(burn_event)
+            
+            # Send to backend via Redis stream
+            await self._send_to_backend_stream(burn_event)
+            
+            # Send real-time updates via WebSocket
+            await self._send_websocket_updates(burn_event)
+            
+            logger.info(f"✅ Burn event processed successfully: {burn_event['amount']} tokens burned")
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing burn event: {e}")
+            raise
+    
+    async def _extract_burn_event_data(self, raw_event: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract and normalize burn event data"""
+        return {
+            'token_address': raw_event.get('token_address', '').lower(),
+            'burner_address': raw_event.get('creator', '').lower(),  # creator field from CommunityBurn event
+            'amount': raw_event.get('amount', '0'),
+            'total_burned': raw_event.get('totalBurned', '0'),
+            'reason': raw_event.get('reason', ''),
+            'timestamp': raw_event.get('block_timestamp', raw_event.get('timestamp', datetime.now().timestamp())),
+            'block_number': raw_event.get('block_number', 0),
+            'transaction_hash': raw_event.get('transaction_hash', '').lower(),
+            'log_index': raw_event.get('log_index', 0),
+            'event_type': 'CommunityBurn'
+        }
+    
+    async def _send_to_backend_stream(self, burn_event: Dict[str, Any]) -> None:
+        """Send burn event to backend via Redis stream"""
+        try:
+            event_data = {
+                'event_type': 'burn_event',
+                'token_address': burn_event['token_address'],
+                'burner_address': burn_event['burner_address'],
+                'amount': str(burn_event['amount']),
+                'total_burned': str(burn_event['total_burned']),
+                'reason': burn_event['reason'],
+                'timestamp': burn_event['timestamp'],
+                'block_number': burn_event['block_number'],
+                'transaction_hash': burn_event['transaction_hash'],
+                'log_index': burn_event['log_index']
+            }
+            
+            # Send to Redis stream for backend consumption
+            message_id = await self.cache_service.send_event_to_stream('BurnEvent', event_data)
+            logger.info(f"📡 Burn event sent to Redis stream: {message_id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending burn event to Redis stream: {e}")
+    
+    async def _send_websocket_updates(self, burn_event: Dict[str, Any]) -> None:
+        """Send real-time burn event updates via WebSocket"""
+        try:
+            # Send to token-specific room
+            token_room = f"token_{burn_event['token_address']}"
+            await self.websocket_service.send_to_room(token_room, {
+                'type': 'burn_event',
+                'data': {
+                    'token_address': burn_event['token_address'],
+                    'burner_address': burn_event['burner_address'],
+                    'amount': str(burn_event['amount']),
+                    'total_burned': str(burn_event['total_burned']),
+                    'reason': burn_event['reason'],
+                    'timestamp': burn_event['timestamp'],
+                    'transaction_hash': burn_event['transaction_hash']
+                }
+            })
+            
+            # Send to global burns room
+            await self.websocket_service.send_to_room('burns', {
+                'type': 'new_burn',
+                'data': {
+                    'token_address': burn_event['token_address'],
+                    'burner_address': burn_event['burner_address'],
+                    'amount': str(burn_event['amount']),
+                    'reason': burn_event['reason'],
+                    'timestamp': burn_event['timestamp']
+                }
+            })
+            
+            logger.info(f"📡 Burn event WebSocket updates sent")
+            
+        except Exception as e:
+            logger.error(f"Error sending burn event WebSocket updates: {e}")

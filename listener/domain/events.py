@@ -13,7 +13,7 @@ from .value_objects import TokenAddress, Price, Volume
 
 
 class DomainEvent(ABC):
-    """Base class برای همه domain events"""
+    """Base class for all domain events"""
     
     def __init__(self):
         self.event_id = str(uuid.uuid4())
@@ -22,13 +22,13 @@ class DomainEvent(ABC):
     
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """تبدیل به dictionary برای serialization"""
+        """Convert to dictionary for serialization"""
         pass
 
 
 @dataclass
 class TradeExecuted(DomainEvent):
-    """رویداد اجرای معامله"""
+    """Trade execution event"""
     trade: TradeEvent
     
     def __post_init__(self):
@@ -61,7 +61,7 @@ class TradeExecuted(DomainEvent):
 
 @dataclass
 class CandleUpdated(DomainEvent):
-    """رویداد به‌روزرسانی candle"""
+    """Candle update event"""
     candle: OHLCVCandle
     previous_candle: Optional[OHLCVCandle] = None
     
@@ -93,7 +93,7 @@ class CandleUpdated(DomainEvent):
 
 @dataclass
 class NewCandleCreated(DomainEvent):
-    """رویداد ساخت candle جدید"""
+    """New candle creation event"""
     candle: OHLCVCandle
     
     def __post_init__(self):
@@ -116,7 +116,7 @@ class NewCandleCreated(DomainEvent):
 
 @dataclass
 class BondingCurveDeployed(DomainEvent):
-    """رویداد deploy شدن bonding curve جدید"""
+    """New bonding curve deployment event"""
     curve: BondingCurve
     
     def __post_init__(self):
@@ -142,7 +142,7 @@ class BondingCurveDeployed(DomainEvent):
 
 @dataclass
 class MarketDataUpdated(DomainEvent):
-    """رویداد به‌روزرسانی داده‌های بازار"""
+    """Market data update event"""
     market_data: MarketData
     previous_price: Optional[Price] = None
     
@@ -172,7 +172,7 @@ class MarketDataUpdated(DomainEvent):
 
 @dataclass
 class PriceAlert(DomainEvent):
-    """رویداد alert قیمت"""
+    """Price alert event"""
     token_address: TokenAddress
     current_price: Price
     threshold_price: Price
@@ -200,7 +200,7 @@ class PriceAlert(DomainEvent):
 
 @dataclass
 class LargeTrade(DomainEvent):
-    """رویداد معامله بزرگ"""
+    """Large trade event"""
     trade: TradeEvent
     threshold_eth: Volume
     
@@ -228,7 +228,7 @@ class LargeTrade(DomainEvent):
 
 @dataclass
 class MilestoneReached(DomainEvent):
-    """رویداد رسیدن به milestone"""
+    """Milestone reached event"""
     curve: BondingCurve
     milestone_level: int
     reserve_eth: Volume
@@ -326,7 +326,7 @@ class RegularCreatorRevoked(DomainEvent):
 
 
 class EventBus:
-    """Event Bus برای مدیریت و dispatch کردن events"""
+    """Event Bus for managing and dispatching events"""
     
     def __init__(self):
         self._handlers: Dict[str, List[callable]] = {}

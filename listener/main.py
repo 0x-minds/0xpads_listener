@@ -14,13 +14,13 @@ from .infrastructure.redis.redis_service import RedisService
 from .infrastructure.websocket.websocket_service import WebSocketService, MockWebSocketService
 from .infrastructure.blockchain.blockchain_service import BlockchainService
 from .infrastructure.logging.logger_config import setup_logging
-from .application.use_cases import ProcessTradeEventUseCase, GetChartDataUseCase, ManageBondingCurvesUseCase
+from .application.use_cases import ProcessTradeEventUseCase, GetChartDataUseCase, ManageBondingCurvesUseCase, ProcessBurnEventUseCase
 from .application.services.chart_service import ChartService
 from .application.services.alert_service import AlertService
 from .application.services.price_service import PriceService
 from .infrastructure.repositories.redis_repositories import (
     RedisTradeRepository, RedisCandleRepository, RedisBondingCurveRepository, 
-    RedisMarketDataRepository
+    RedisMarketDataRepository, RedisBurnEventRepository
 )
 
 
@@ -40,6 +40,7 @@ class BlockchainListener:
         self.candle_repo: Optional[RedisCandleRepository] = None
         self.curve_repo: Optional[RedisBondingCurveRepository] = None
         self.market_data_repo: Optional[RedisMarketDataRepository] = None
+        self.burn_repo: Optional[RedisBurnEventRepository] = None
         
         # Application services
         self.chart_service: Optional[ChartService] = None
@@ -50,6 +51,7 @@ class BlockchainListener:
         self.process_trade_use_case: Optional[ProcessTradeEventUseCase] = None
         self.get_chart_data_use_case: Optional[GetChartDataUseCase] = None
         self.manage_curves_use_case: Optional[ManageBondingCurvesUseCase] = None
+        self.process_burn_use_case: Optional[ProcessBurnEventUseCase] = None
         
         # Control flags
         self._running = False
@@ -138,6 +140,7 @@ class BlockchainListener:
         self.candle_repo = RedisCandleRepository(self.redis_service)
         self.curve_repo = RedisBondingCurveRepository(self.redis_service)
         self.market_data_repo = RedisMarketDataRepository(self.redis_service)
+        self.burn_repo = RedisBurnEventRepository(self.redis_service)
         
         logger.info("✅ Repositories initialized")
     
@@ -187,6 +190,13 @@ class BlockchainListener:
             self.curve_repo,
             self.redis_service,
             self.websocket_service
+        )
+        
+        self.process_burn_use_case = ProcessBurnEventUseCase(
+            self.burn_repo,
+            self.redis_service,
+            self.websocket_service,
+            self.redis_service
         )
         
         logger.info("✅ Use cases initialized")
@@ -281,6 +291,11 @@ class BlockchainListener:
                 # Handle new bonding curve
                 await self.manage_curves_use_case.add_new_curve(event)
                 logger.info(f"✅ Added new bonding curve: {event.get('name', 'unknown')}")
+                
+            elif event_type == 'CommunityBurn':
+                # Process burn event
+                await self.process_burn_use_case.execute(event)
+                logger.info(f"✅ Processed {event_type} event for {event.get('token_address', 'unknown')[:8]}...")
                 
             elif event_type in ['TokensPurchased', 'TokensSold']:
                 # Skip these - already processed via Trade event
