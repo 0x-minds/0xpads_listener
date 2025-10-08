@@ -5,7 +5,7 @@ import sentry_sdk
 
 # Initialize Sentry
 sentry_sdk.init(
-    dsn="https://ab02b3f44d6ec5f99e512d1694488a5f@o4509688918769664.ingest.de.sentry.io/4510137458557008",
+    dsn="https://45ad226ab6c373e24350f4aa8fbae72a@sentry.hamravesh.com/9137",
     # Add data like request headers and IP for users,
     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
